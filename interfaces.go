@@ -11,5 +11,17 @@ type (
 		IsRunning() bool
 		GetMeasures() *[360]*Measure
 		GetRotationCompletedChannel() <-chan RotationCompleted
+		GetAverageDistanceFromAngle(
+			middleAngle int,
+			width int,
+		) (float64, error)
+		GetAverageDistanceFromDirection(
+			width int,
+			direction CardinalDirection,
+		) (float64, error)
+		GetAverageDistancesFromDirections(
+			width int,
+			directions ...CardinalDirection,
+		) (map[CardinalDirection]float64, error)
 	}
 )

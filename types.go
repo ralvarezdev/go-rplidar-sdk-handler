@@ -688,6 +688,78 @@ func (h *DefaultHandler) GetMeasures() *[360]*Measure {
 	return &measuresCopy
 }
 
+// GetAverageDistanceFromAngle calculates the average distance for a given angle.
+//
+// Parameters:
+//
+// midleAngle: The middle angle to calculate the average distance for.
+// width: The sum of the angles to consider with both sides and the middle angle.
+//
+// Returns:
+//
+// The average distance for the specified angle, or an error if the angle is not valid.
+func (h *DefaultHandler) GetAverageDistanceFromAngle(
+	middleAngle int,
+	width int,
+) (float64, error) {
+	// Get the current measures
+	measures := h.GetMeasures()
+
+	return GetAverageDistanceFromAngle(
+		measures,
+		middleAngle,
+		width,
+	)
+}
+
+// GetAverageDistanceFromDirection calculates the average distance for a given direction.
+//
+// Parameters:
+//
+// width: The sum of the angles to consider with both sides and the middle angle.
+// direction: The direction to calculate the average distance for.
+//
+// Returns:
+//
+// The average distance for the specified direction, or an error if the direction is not valid.
+func (h *DefaultHandler) GetAverageDistanceFromDirection(
+	width int,
+	direction CardinalDirection,
+) (float64, error) {
+	// Get the current measures
+	measures := h.GetMeasures()
+
+	return GetAverageDistanceFromDirection(
+		measures,
+		width,
+		direction,
+	)
+}
+
+// GetAverageDistancesFromDirections calculates the average distances for the specified directions.
+//
+// Parameters:
+//
+// width: The sum of the angles to consider with both sides and the middle angle.
+// directions: The directions to calculate the average distances for.
+//
+// Returns:
+//
+// A map with directions as keys and their average distances as values, or an error if any direction is not valid.
+func (h *DefaultHandler) GetAverageDistancesFromDirections(
+	width int,
+	directions ...CardinalDirection,
+) (map[CardinalDirection]float64, error) {	
+	// Get the current measures
+	measures := h.GetMeasures()
+	
+	return GetAverageDistancesFromDirections(
+		measures,
+		width,
+		directions...,
+	)
+}
+
 // handleStderrLine processes a single line from stderr.
 //
 // Parameters:

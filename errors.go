@@ -10,4 +10,7 @@ var (
 	ErrHandlerAlreadyRunning = errors.New("handler is already running")
 	ErrEmptyUltraSimplePath   = errors.New("ultra_simple path cannot be empty")
 	ErrInvalidMaxDistanceLimit = errors.New("max distance limit must be greater than zero")
+	ErrAngleWidthMustBeOdd          = errors.New("angle width must be odd")
+	ErrAngleWidthTooSmall           = errors.New("angle width must be greater than 0")
+	ErrAngleWidthTooLarge           = errors.New("angle width must be less than 360 degrees")
 )
