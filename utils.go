@@ -140,3 +140,24 @@ func GetAverageDistancesFromDirections(
 	}
 	return avgDistances, nil
 }
+
+// GetAverageDistanceFromAllDirections calculates the average distance for all cardinal directions.
+//
+// Parameters:
+//
+// measures: A pointer to an array of 360 Measure pointers indexed by angle.
+// width: The sum of the angles to consider with both sides and the middle angle.
+//
+// Returns:
+//
+// A map with all cardinal directions as keys and their average distances as values, or an error if any direction is not valid.
+func GetAverageDistanceFromAllDirections(
+	measures *[360]*Measure,
+	width int,
+) (map[CardinalDirection]float64, error) {
+	return GetAverageDistancesFromDirections(
+		measures,
+		width,
+		CardinalDirections...,
+	)
+}

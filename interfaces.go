@@ -23,5 +23,8 @@ type (
 			width int,
 			directions ...CardinalDirection,
 		) (map[CardinalDirection]float64, error)
+		GetAverageDistancesFromAllDirections(
+			width int,
+		) (map[CardinalDirection]float64, error)
 	}
 )

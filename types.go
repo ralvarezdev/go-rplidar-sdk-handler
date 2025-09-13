@@ -760,6 +760,27 @@ func (h *DefaultHandler) GetAverageDistancesFromDirections(
 	)
 }
 
+// GetAverageDistancesFromAllDirections calculates the average distances for all cardinal directions.
+//
+// Parameters:
+//
+// width: The sum of the angles to consider with both sides and the middle angle.
+//
+// Returns:
+//
+// A map with all cardinal directions as keys and their average distances as values, or an error if any direction is not valid.
+func (h *DefaultHandler) GetAverageDistancesFromAllDirections(
+	width int,
+) (map[CardinalDirection]float64, error) {
+	// Get the current measures
+	measures := h.GetMeasures()
+
+	return GetAverageDistanceFromAllDirections(
+		measures,
+		width,
+	)
+}
+
 // handleStderrLine processes a single line from stderr.
 //
 // Parameters:
