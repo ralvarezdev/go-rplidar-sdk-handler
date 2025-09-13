@@ -38,15 +38,12 @@ type (
 		isRunning             atomic.Bool
 		logger                goconcurrentlogger.Logger
 		handlerLoggerProducer goconcurrentlogger.LoggerProducer
-		rotationCompletedCh   chan RotationCompleted
 		baudRate              int
 		isUpsideDown          bool
 		angleAdjustment       float64
 		measures              [360]*Measure
 		stdoutLinesRead       int
-		isRotationCompleted   bool
 		ultraSimplePath      string
-		channelBufferSize 	uint64
 		maxDistanceLimit    float64
 		port string
 	}
@@ -265,7 +262,6 @@ func (m *Measure) IsRotationCompleted() bool {
 // angleAdjustment: Optional angle adjustment to apply to the angles.
 // logger: Logger instance for logging messages.
 // ultraSimplePath: Path to the ultra_simple executable.
-// channelBufferSize: Size of the rotation completed channel buffer.
 // maxDistanceLimit: Maximum distance limit for valid measurements.
 //
 // Returns:
@@ -278,7 +274,6 @@ func NewDefaultHandler(
 	angleAdjustment float64,
 	logger goconcurrentlogger.Logger,
 	ultraSimplePath      string,
-	channelBufferSize 	uint64,
 	maxDistanceLimit    float64,
 ) (*DefaultHandler, error) {
 	// Check if the logger is nil
@@ -304,7 +299,6 @@ func NewDefaultHandler(
 		isUpsideDown:    isUpsideDown,
 		angleAdjustment: angleAdjustment,
 		ultraSimplePath:      ultraSimplePath,
-		channelBufferSize: 	channelBufferSize,
 		maxDistanceLimit:    maxDistanceLimit,
 	}
 
@@ -320,7 +314,6 @@ func NewDefaultHandler(
 // angleAdjustment: Optional angle adjustment to apply to the angles.
 // logger: Logger instance for logging messages.
 // ultraSimplePath: Path to the ultra_simple executable.
-// channelBufferSize: Size of the rotation completed channel buffer.
 // maxDistanceLimit: Maximum distance limit for valid measurements.
 //
 // Returns:
@@ -332,7 +325,6 @@ func NewSlamtecC1Handler(
 	angleAdjustment float64,
 	logger goconcurrentlogger.Logger,
 	ultraSimplePath      string,
-	channelBufferSize 	uint64,
 	maxDistanceLimit    float64,
 ) (*DefaultHandler, error) {
 	return NewDefaultHandler(
@@ -342,20 +334,8 @@ func NewSlamtecC1Handler(
 		angleAdjustment,
 		logger,
 		ultraSimplePath,
-		channelBufferSize,
 		maxDistanceLimit,
 	)
-}
-
-// GetRotationCompletedChannel returns the rotation completed channel.
-//
-// Returns:
-//
-// A channel that signals when a full rotation is completed.
-func (h *DefaultHandler) GetRotationCompletedChannel() <-chan RotationCompleted {
-	h.handlerMutex.Lock()
-	defer h.handlerMutex.Unlock()
-	return h.rotationCompletedCh
 }
 
 // IsRunning checks if the handler is currently running.
@@ -383,9 +363,6 @@ func (h *DefaultHandler) runToWrap(ctx context.Context, stopFn func()) error {
 
 	// Reset the stdout lines read counter
 	h.stdoutLinesRead = 0
-
-	// Reset the rotation completed flag
-	h.isRotationCompleted = false
 
 	// Log the start of reading measures
 	h.handlerLoggerProducer.Info(HandlerStartedMessage)
@@ -519,13 +496,6 @@ func (h *DefaultHandler) Run(ctx context.Context, stopFn func()) error {
 	// Set running to true
 	h.isRunning.Store(true)
 
-	// Initialize the rotation completed channel
-	h.rotationCompletedCh = make(
-		chan RotationCompleted,
-		h.channelBufferSize,
-	)
-	defer close(h.rotationCompletedCh)
-
 	h.handlerMutex.Unlock()
 
 	// Create a logger producer
@@ -646,7 +616,6 @@ func (h *DefaultHandler) handleStdoutLine(line string) error {
 	// Check if the RPLiDAR has completed a full rotation
 	if measure.IsRotationCompleted() {
 		h.handlerLoggerProducer.Info("Full rotation completed.")
-		h.isRotationCompleted = true
 	}
 
 	// Check if the distance is within the maximum limit
@@ -656,19 +625,13 @@ func (h *DefaultHandler) handleStdoutLine(line string) error {
 
 	// Lock the measures for writing
 	h.measuresMutex.Lock()
-	defer h.measuresMutex.Unlock()
 
 	// Store the measure in the measures
 	angle := int(measure.GetAngle()) % 360
 	h.measures[angle] = measure
 
-	// Send the signal if a full rotation is completed
-	if h.isRotationCompleted {
-		h.rotationCompletedCh <- RotationCompleted{}
-
-		// Reset the rotation completed flag
-		h.isRotationCompleted = false
-	}
+	// Unlock the measures
+	h.measuresMutex.Unlock()
 	return nil
 }
 

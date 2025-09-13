@@ -10,7 +10,6 @@ type (
 		Run(ctx context.Context, stopFn func()) error
 		IsRunning() bool
 		GetMeasures() *[360]*Measure
-		GetRotationCompletedChannel() <-chan RotationCompleted
 		GetAverageDistanceFromAngle(
 			middleAngle int,
 			width int,
