@@ -549,6 +549,14 @@ func (h *DefaultHandler) scanLines(
 	for sc.Scan() {
 		select {
 		case <-ctx.Done():
+			h.handlerLoggerProducer.Info(
+				fmt.Sprintf(
+					"Context done while reading lines from %s: %v",
+					tag,
+					ctx.Err(),
+				),
+			)
+			// Return context error
 			return ctx.Err()
 		default:
 			// Read the line
