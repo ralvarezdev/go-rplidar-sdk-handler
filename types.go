@@ -46,6 +46,7 @@ type (
 		ultraSimplePath      string
 		maxDistanceLimit    float64
 		port string
+		debug bool
 	}
 )
 
@@ -263,6 +264,7 @@ func (m *Measure) IsRotationCompleted() bool {
 // logger: Logger instance for logging messages.
 // ultraSimplePath: Path to the ultra_simple executable.
 // maxDistanceLimit: Maximum distance limit for valid measurements.
+// debug: If true, enables debug logging.
 //
 // Returns:
 //
@@ -275,6 +277,7 @@ func NewDefaultHandler(
 	logger goconcurrentlogger.Logger,
 	ultraSimplePath      string,
 	maxDistanceLimit    float64,
+	debug bool,
 ) (*DefaultHandler, error) {
 	// Check if the logger is nil
 	if logger == nil {
@@ -300,6 +303,7 @@ func NewDefaultHandler(
 		angleAdjustment: angleAdjustment,
 		ultraSimplePath:      ultraSimplePath,
 		maxDistanceLimit:    maxDistanceLimit,
+		debug:           debug,
 	}
 
 	return handler, nil
@@ -315,6 +319,7 @@ func NewDefaultHandler(
 // logger: Logger instance for logging messages.
 // ultraSimplePath: Path to the ultra_simple executable.
 // maxDistanceLimit: Maximum distance limit for valid measurements.
+// debug: If true, enables debug logging.
 //
 // Returns:
 //
@@ -326,6 +331,7 @@ func NewSlamtecC1Handler(
 	logger goconcurrentlogger.Logger,
 	ultraSimplePath      string,
 	maxDistanceLimit    float64,
+	debug bool,
 ) (*DefaultHandler, error) {
 	return NewDefaultHandler(
 		SlamtecC1BaudRate,
@@ -335,6 +341,7 @@ func NewSlamtecC1Handler(
 		logger,
 		ultraSimplePath,
 		maxDistanceLimit,
+		debug,
 	)
 }
 
@@ -509,6 +516,7 @@ func (h *DefaultHandler) Run(ctx context.Context, stopFn func()) error {
 	// Create a logger producer
 	handlerLoggerProducer, err := h.logger.NewProducer(
 		HandlerLoggerProducerTag,
+		h.debug,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create handler logger producer: %w", err)
