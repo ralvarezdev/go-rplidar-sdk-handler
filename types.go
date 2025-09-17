@@ -630,8 +630,8 @@ func (h *DefaultHandler) handleStdoutLine(line string) error {
 	}
 
 	// Check if the RPLiDAR has completed a full rotation
-	if measure.IsRotationCompleted() {
-		h.handlerLoggerProducer.Info("Full rotation completed.")
+	if measure.IsRotationCompleted() && h.handlerLoggerProducer.IsDebug() {
+		h.handlerLoggerProducer.Debug("Full rotation completed.")
 	}
 
 	// Check if the distance is within the maximum limit
