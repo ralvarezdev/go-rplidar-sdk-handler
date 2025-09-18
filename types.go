@@ -15,8 +15,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	gostringsconvert "github.com/ralvarezdev/go-strings/convert"
 	goconcurrentlogger "github.com/ralvarezdev/go-concurrent-logger"
+	gostringsconvert "github.com/ralvarezdev/go-strings/convert"
 )
 
 type (
@@ -43,10 +43,10 @@ type (
 		angleAdjustment       float64
 		measures              [360]*Measure
 		stdoutLinesRead       int
-		ultraSimplePath      string
-		maxDistanceLimit    float64
-		port string
-		debug bool
+		ultraSimplePath       string
+		maxDistanceLimit      float64
+		port                  string
+		debug                 bool
 	}
 )
 
@@ -275,8 +275,8 @@ func NewDefaultHandler(
 	isUpsideDown bool,
 	angleAdjustment float64,
 	logger goconcurrentlogger.Logger,
-	ultraSimplePath      string,
-	maxDistanceLimit    float64,
+	ultraSimplePath string,
+	maxDistanceLimit float64,
 	debug bool,
 ) (*DefaultHandler, error) {
 	// Check if the logger is nil
@@ -296,14 +296,14 @@ func NewDefaultHandler(
 
 	// Create a new DefaultHandler instance
 	handler := &DefaultHandler{
-		logger:          logger,
-		baudRate:        baudRate,
-		port:            port,
-		isUpsideDown:    isUpsideDown,
-		angleAdjustment: angleAdjustment,
-		ultraSimplePath:      ultraSimplePath,
-		maxDistanceLimit:    maxDistanceLimit,
-		debug:           debug,
+		logger:           logger,
+		baudRate:         baudRate,
+		port:             port,
+		isUpsideDown:     isUpsideDown,
+		angleAdjustment:  angleAdjustment,
+		ultraSimplePath:  ultraSimplePath,
+		maxDistanceLimit: maxDistanceLimit,
+		debug:            debug,
 	}
 
 	return handler, nil
@@ -329,8 +329,8 @@ func NewSlamtecC1Handler(
 	isUpsideDown bool,
 	angleAdjustment float64,
 	logger goconcurrentlogger.Logger,
-	ultraSimplePath      string,
-	maxDistanceLimit    float64,
+	ultraSimplePath string,
+	maxDistanceLimit float64,
 	debug bool,
 ) (*DefaultHandler, error) {
 	return NewDefaultHandler(
@@ -415,7 +415,7 @@ func (h *DefaultHandler) runToWrap(ctx context.Context, stopFn func()) error {
 	g.Go(
 		goconcurrentlogger.StopContextAndLogOnError(
 			ctx,
-			stopFn, 
+			stopFn,
 			func(ctx context.Context) error {
 				return h.scanLines(
 					ctx,
@@ -432,7 +432,7 @@ func (h *DefaultHandler) runToWrap(ctx context.Context, stopFn func()) error {
 	g.Go(
 		goconcurrentlogger.StopContextAndLogOnError(
 			ctx,
-			stopFn, 
+			stopFn,
 			func(ctx context.Context) error {
 				return h.scanLines(
 					ctx,
@@ -447,7 +447,12 @@ func (h *DefaultHandler) runToWrap(ctx context.Context, stopFn func()) error {
 
 	// Wait for completion or context cancel
 	if err = g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		h.handlerLoggerProducer.Warning(fmt.Sprintf("Error reading lines: %v", err))
+		h.handlerLoggerProducer.Warning(
+			fmt.Sprintf(
+				"Error reading lines: %v",
+				err,
+			),
+		)
 		return err
 	}
 
@@ -455,28 +460,28 @@ func (h *DefaultHandler) runToWrap(ctx context.Context, stopFn func()) error {
 	h.handlerLoggerProducer.Info("RPLiDAR process exiting...")
 
 	// Close the stdout and stderr pipes
-    _ = stdout.Close()
-    _ = stderr.Close()
+	_ = stdout.Close()
+	_ = stderr.Close()
 
-    // Signal the process to stop (SIGINT)
-    _ = cmd.Process.Signal(os.Interrupt)
+	// Signal the process to stop (SIGINT)
+	_ = cmd.Process.Signal(os.Interrupt)
 
-    // Wait for the process to exit or timeout
-    done := make(chan struct{})
-    go func() {
-        cmd.Wait()
-        close(done)
-    }()
+	// Wait for the process to exit or timeout
+	done := make(chan struct{})
+	go func() {
+		cmd.Wait()
+		close(done)
+	}()
 
-    select {
-    case <-done:
-        // Process exited gracefully
+	select {
+	case <-done:
+		// Process exited gracefully
 		h.handlerLoggerProducer.Info("RPLiDAR process exited gracefully")
-    case <-time.After(CloseTimeout):
-        // Timeout, force kill
-        _ = cmd.Process.Kill()
+	case <-time.After(CloseTimeout):
+		// Timeout, force kill
+		_ = cmd.Process.Kill()
 		h.handlerLoggerProducer.Warning("RPLiDAR process killed after timeout")
-    }
+	}
 	return nil
 
 }
@@ -741,10 +746,10 @@ func (h *DefaultHandler) GetAverageDistanceFromDirection(
 func (h *DefaultHandler) GetAverageDistancesFromDirections(
 	width int,
 	directions ...CardinalDirection,
-) (map[CardinalDirection]float64, error) {	
+) (map[CardinalDirection]float64, error) {
 	// Get the current measures
 	measures := h.GetMeasures()
-	
+
 	return GetAverageDistancesFromDirections(
 		measures,
 		width,
