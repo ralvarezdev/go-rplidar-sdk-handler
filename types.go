@@ -642,9 +642,14 @@ func (h *DefaultHandler) handleStdoutLine(line string) error {
 		h.handlerLoggerProducer.Debug("Full rotation completed.")
 	}
 
-	// Check if the distance is within the maximum limit
-	if measure.GetDistance() < 0 || measure.GetDistance() > h.maxDistanceLimit {
-		return nil // Ignore out-of-range distances
+	// Check if the distance is valid
+	if measure.GetDistance() < 0 {
+		return nil
+	}
+
+	// Cap the distance to the max distance limit
+	if measure.GetDistance() > h.maxDistanceLimit {
+		measure.distance = h.maxDistanceLimit
 	}
 
 	// Lock the measures for writing
