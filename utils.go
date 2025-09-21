@@ -20,9 +20,6 @@ func GetAverageDistanceFromAngle(
 	middleAngle int,
 	width int,
 ) (float64, error) {
-	var totalDistance float64
-	var count int
-
 	// Calculate the range of angles to consider
 	if width%2 == 0 {
 		return 0, ErrAngleWidthMustBeOdd
@@ -38,7 +35,7 @@ func GetAverageDistanceFromAngle(
 	if width == 1 {
 		measure := measures[middleAngle]
 		if measure == nil {
-			return 0.0, nil
+			return math.NaN(), nil
 		}
 		return measure.GetDistance(), nil
 	}
@@ -63,6 +60,8 @@ func GetAverageDistanceFromAngle(
 	}
 
 	// Calculate the average distance
+	var totalDistance float64
+	var count int
 	for _, angle := range angles {
 		measure := measures[angle]
 		if measure == nil {
@@ -77,6 +76,13 @@ func GetAverageDistanceFromAngle(
 		totalDistance += measure.GetDistance()
 		count++
 	}
+
+	// Check if the count is zero
+	if count == 0 {
+		return math.NaN(), nil
+	}
+
+	// Return the average distance
 	return totalDistance / float64(count), nil
 }
 
