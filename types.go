@@ -42,6 +42,7 @@ type (
 		isUpsideDown          bool
 		angleAdjustment       float64
 		measures              [360]*Measure
+		minimumQuality        int
 		stdoutLinesRead       int
 		ultraSimplePath       string
 		maxDistanceLimit      float64
@@ -261,6 +262,7 @@ func (m *Measure) IsRotationCompleted() bool {
 // port: SerialCommunication port for the RPLiDAR.
 // isUpsideDown: If true, the RPLiDAR is upside down, and angles will be adjusted accordingly.
 // angleAdjustment: Optional angle adjustment to apply to the angles.
+// minimumQuality: Minimum quality for a valid measurement.
 // logger: Logger instance for logging messages.
 // ultraSimplePath: Path to the ultra_simple executable.
 // maxDistanceLimit: Maximum distance limit for valid measurements.
@@ -274,6 +276,7 @@ func NewDefaultHandler(
 	port string,
 	isUpsideDown bool,
 	angleAdjustment float64,
+	minimumQuality int,
 	logger goconcurrentlogger.Logger,
 	ultraSimplePath string,
 	maxDistanceLimit float64,
@@ -301,6 +304,7 @@ func NewDefaultHandler(
 		port:             port,
 		isUpsideDown:     isUpsideDown,
 		angleAdjustment:  angleAdjustment,
+		minimumQuality:   minimumQuality,
 		ultraSimplePath:  ultraSimplePath,
 		maxDistanceLimit: maxDistanceLimit,
 		debug:            debug,
@@ -316,6 +320,7 @@ func NewDefaultHandler(
 // port: SerialCommunication port for the RPLiDAR C1.
 // isUpsideDown: If true, the RPLiDAR is upside down, and angles will be adjusted accordingly.
 // angleAdjustment: Optional angle adjustment to apply to the angles.
+// minimumQuality: Minimum quality for a valid measurement.
 // logger: Logger instance for logging messages.
 // ultraSimplePath: Path to the ultra_simple executable.
 // maxDistanceLimit: Maximum distance limit for valid measurements.
@@ -328,6 +333,7 @@ func NewSlamtecC1Handler(
 	port string,
 	isUpsideDown bool,
 	angleAdjustment float64,
+	minimumQuality int,
 	logger goconcurrentlogger.Logger,
 	ultraSimplePath string,
 	maxDistanceLimit float64,
@@ -338,6 +344,7 @@ func NewSlamtecC1Handler(
 		port,
 		isUpsideDown,
 		angleAdjustment,
+		minimumQuality,
 		logger,
 		ultraSimplePath,
 		maxDistanceLimit,
@@ -651,6 +658,11 @@ func (h *DefaultHandler) handleStdoutLine(line string) error {
 
 	// Check if the distance is valid
 	if measure.GetDistance() < 0 {
+		return nil
+	}
+
+	// Check if the quality is below the minimum quality
+	if measure.GetQuality() < h.minimumQuality {
 		return nil
 	}
 
