@@ -9,6 +9,7 @@ type (
 	Handler interface {
 		Run(ctx context.Context, cancelFn context.CancelFunc) error
 		IsRunning() bool
+		WaitUntilReady(ctx context.Context) error
 		StartSendingMeasures() error
 		StopSendingMeasures() error
 		GetMeasuresChannel() (<-chan *[360]*Measure, error)

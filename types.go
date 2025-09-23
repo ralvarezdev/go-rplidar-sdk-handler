@@ -45,10 +45,12 @@ type (
 		maxDistanceLimit      float64
 		port                  string
 		debug                 bool
-		isRotationCompleted bool
-		hasStartedSending             atomic.Bool
-		measuresChSize 		   int	
-		measuresCh             chan *[360]*Measure
+		isRotationCompleted   bool
+		hasStartedSending     atomic.Bool
+		measuresChSize        int
+		measuresCh            chan *[360]*Measure
+		readyCh			  chan struct{}
+		rplidarApplicationStarted atomic.Bool
 	}
 )
 
@@ -317,6 +319,7 @@ func NewDefaultHandler(
 		maxDistanceLimit: maxDistanceLimit,
 		measuresChSize:   measuresChSize,
 		debug:            debug,
+		readyCh:          make(chan struct{}),
 	}, nil
 }
 
@@ -526,6 +529,9 @@ func (h *DefaultHandler) Run(ctx context.Context, cancelFn context.CancelFunc) e
 	// Set running to true
 	h.isRunning.Store(true)
 
+	// Reset RPLiDAR application started flag
+	h.rplidarApplicationStarted.Store(false)
+
 	// Reset rotation completed flag
 	h.isRotationCompleted = false
 
@@ -563,7 +569,7 @@ func (h *DefaultHandler) close() {
 	h.handlerMutex.Lock()
 
 	// Check if the handler is already closed
-	if !h.IsRunning() { 
+	if !h.IsRunning() {
 		h.handlerMutex.Unlock()
 		return
 	}
@@ -578,6 +584,10 @@ func (h *DefaultHandler) close() {
 
 	// Close the measures channel
 	close(h.measuresCh)
+	h.measuresCh = nil
+
+	// Reset the ready channel
+	h.readyCh = make(chan struct{})
 }
 
 // StartSendingMeasures sets the handler to start sending measures through the measures channel.
@@ -622,6 +632,31 @@ func (h *DefaultHandler) GetMeasuresChannel() (<-chan *[360]*Measure, error) {
 		return nil, ErrHandlerIsNotRunning
 	}
 	return h.measuresCh, nil
+}
+
+// WaitUntilReady waits until the handler is ready to process measures.
+//
+// Parameters:
+//
+// ctx: Context for managing cancellation and timeouts.
+//
+// Returns:
+//
+// An error if the handler is not running.
+func (h *DefaultHandler) WaitUntilReady(ctx context.Context) error {
+	h.handlerMutex.Lock()
+	if !h.IsRunning() {
+		h.handlerMutex.Unlock()
+		return ErrHandlerIsNotRunning
+	}
+	h.handlerMutex.Unlock()
+
+	select {
+	case <-h.readyCh:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // scanLines reads lines from the provided reader and processes them using the given lineHandler.
@@ -730,9 +765,21 @@ func (h *DefaultHandler) handleStdoutLine(line string) error {
 	}
 
 	// Check if the RPLiDAR has completed a full rotation
-	if measure.IsRotationCompleted() && h.handlerLoggerProducer.IsDebug() {
-		h.handlerLoggerProducer.Debug("Full rotation completed.")
+	if measure.IsRotationCompleted() {
+		if h.handlerLoggerProducer.IsDebug() {
+			h.handlerLoggerProducer.Debug("Full rotation completed.")
+		}
 		h.isRotationCompleted = true
+
+		// Signal that the handler is ready after the first full rotation
+		if !h.rplidarApplicationStarted.Load() {
+			h.rplidarApplicationStarted.Store(true)
+			close(h.readyCh)
+			
+			if h.handlerLoggerProducer.IsDebug() {
+				h.handlerLoggerProducer.Debug("Handler is now ready.")
+			}
+		}
 	}
 
 	// Check if the distance is valid
@@ -765,7 +812,7 @@ func (h *DefaultHandler) handleStdoutLine(line string) error {
 
 		// Send the snapshot through the channel with a small timeout to avoid blocking
 		select {
-		case h.measuresCh <- &h.measures:
+		case h.measuresCh <- &snapshot:
 			if h.handlerLoggerProducer.IsDebug() {
 				h.handlerLoggerProducer.Debug("Measures sent through channel.")
 			}
