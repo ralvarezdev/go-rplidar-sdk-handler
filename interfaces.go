@@ -7,7 +7,7 @@ import (
 type (
 	// Handler is the interface to handle the RPLiDAR devices
 	Handler interface {
-		Run(ctx context.Context, stopFn func()) error
+		Run(ctx context.Context, cancelFn context.CancelFunc) error
 		IsRunning() bool
 		GetMeasures() *[360]*Measure
 		GetAverageDistanceFromAngle(
