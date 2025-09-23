@@ -526,8 +526,11 @@ func (h *DefaultHandler) Run(ctx context.Context, cancelFn context.CancelFunc) e
 	// Set running to true
 	h.isRunning.Store(true)
 
-	// Reset has started sending flag
-	h.hasStartedSending.Store(false)
+	// Reset rotation completed flag
+	h.isRotationCompleted = false
+
+	// Reset measures
+	h.measures = [360]*Measure{}
 
 	// Create the measures channel
 	h.measuresCh = make(chan *[360]*Measure, h.measuresChSize)
@@ -570,6 +573,9 @@ func (h *DefaultHandler) close() {
 
 	h.handlerMutex.Unlock()
 
+	// Reset has started sending state
+	h.hasStartedSending.Store(false)
+
 	// Close the measures channel
 	close(h.measuresCh)
 }
@@ -577,6 +583,7 @@ func (h *DefaultHandler) close() {
 // StartSendingMeasures sets the handler to start sending measures through the measures channel.
 //
 // Returns:
+//
 // An error if the handler is not running.
 func (h *DefaultHandler) StartSendingMeasures() error {
 	h.handlerMutex.Lock()
@@ -606,6 +613,7 @@ func (h *DefaultHandler) StopSendingMeasures() error {
 // GetMeasuresChannel returns the channel through which measures are sent.
 //
 // Returns:
+//
 // A read-only channel of measure arrays, or an error if the handler is not running.
 func (h *DefaultHandler) GetMeasuresChannel() (<-chan *[360]*Measure, error) {
 	h.handlerMutex.Lock()
