@@ -9,6 +9,9 @@ type (
 	Handler interface {
 		Run(ctx context.Context, cancelFn context.CancelFunc) error
 		IsRunning() bool
+		StartSendingMeasures() error
+		StopSendingMeasures() error
+		GetMeasuresChannel() (<-chan *[360]*Measure, error)
 		GetMeasures() *[360]*Measure
 		GetAverageDistanceFromAngle(
 			middleAngle int,

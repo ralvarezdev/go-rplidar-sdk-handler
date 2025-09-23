@@ -13,4 +13,6 @@ var (
 	ErrAngleWidthMustBeOdd     = errors.New("angle width must be odd")
 	ErrAngleWidthTooSmall      = errors.New("angle width must be greater than 0")
 	ErrAngleWidthTooLarge      = errors.New("angle width must be less than 360 degrees")
+	ErrInvalidMeasuresChannelSize = errors.New("measures channel size must be greater than 0")
+	ErrHandlerIsNotRunning    = errors.New("handler is not running")
 )

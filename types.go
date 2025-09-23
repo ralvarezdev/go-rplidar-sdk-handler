@@ -20,9 +20,6 @@ import (
 )
 
 type (
-	// RotationCompleted is a signal sent when a full rotation is completed
-	RotationCompleted struct{}
-
 	// Measure is a struct that represents a single measurement from the RPLiDAR.
 	Measure struct {
 		angle      float64
@@ -48,6 +45,10 @@ type (
 		maxDistanceLimit      float64
 		port                  string
 		debug                 bool
+		isRotationCompleted bool
+		hasStartedSending             atomic.Bool
+		measuresChSize 		   int	
+		measuresCh             chan *[360]*Measure
 	}
 )
 
@@ -266,6 +267,7 @@ func (m *Measure) IsRotationCompleted() bool {
 // logger: Logger instance for logging messages.
 // ultraSimplePath: Path to the ultra_simple executable.
 // maxDistanceLimit: Maximum distance limit for valid measurements.
+// measuresChSize: Size of the channel to send measures.
 // debug: If true, enables debug logging.
 //
 // Returns:
@@ -280,6 +282,7 @@ func NewDefaultHandler(
 	logger goconcurrentlogger.Logger,
 	ultraSimplePath string,
 	maxDistanceLimit float64,
+	measuresChSize int,
 	debug bool,
 ) (*DefaultHandler, error) {
 	// Check if the logger is nil
@@ -297,8 +300,13 @@ func NewDefaultHandler(
 		return nil, ErrInvalidMaxDistanceLimit
 	}
 
+	// Check if the measures channel size is valid
+	if measuresChSize <= 0 {
+		return nil, ErrInvalidMeasuresChannelSize
+	}
+
 	// Create a new DefaultHandler instance
-	handler := &DefaultHandler{
+	return &DefaultHandler{
 		logger:           logger,
 		baudRate:         baudRate,
 		port:             port,
@@ -307,10 +315,9 @@ func NewDefaultHandler(
 		minimumQuality:   minimumQuality,
 		ultraSimplePath:  ultraSimplePath,
 		maxDistanceLimit: maxDistanceLimit,
+		measuresChSize:   measuresChSize,
 		debug:            debug,
-	}
-
-	return handler, nil
+	}, nil
 }
 
 // NewSlamtecC1Handler creates a new DefaultHandler instance configured for the Slamtec RPLiDAR C1 model.
@@ -324,6 +331,7 @@ func NewDefaultHandler(
 // logger: Logger instance for logging messages.
 // ultraSimplePath: Path to the ultra_simple executable.
 // maxDistanceLimit: Maximum distance limit for valid measurements.
+// measuresChSize: Size of the channel to send measures.
 // debug: If true, enables debug logging.
 //
 // Returns:
@@ -337,6 +345,7 @@ func NewSlamtecC1Handler(
 	logger goconcurrentlogger.Logger,
 	ultraSimplePath string,
 	maxDistanceLimit float64,
+	measuresChSize int,
 	debug bool,
 ) (*DefaultHandler, error) {
 	return NewDefaultHandler(
@@ -348,6 +357,7 @@ func NewSlamtecC1Handler(
 		logger,
 		ultraSimplePath,
 		maxDistanceLimit,
+		measuresChSize,
 		debug,
 	)
 }
@@ -511,17 +521,16 @@ func (h *DefaultHandler) Run(ctx context.Context, cancelFn context.CancelFunc) e
 		h.handlerMutex.Unlock()
 		return ErrHandlerAlreadyRunning
 	}
-	defer func() {
-		h.handlerMutex.Lock()
-
-		// Set running to false
-		h.isRunning.Store(false)
-
-		h.handlerMutex.Unlock()
-	}()
+	defer h.close()
 
 	// Set running to true
 	h.isRunning.Store(true)
+
+	// Reset has started sending flag
+	h.hasStartedSending.Store(false)
+
+	// Create the measures channel
+	h.measuresCh = make(chan *[360]*Measure, h.measuresChSize)
 
 	h.handlerMutex.Unlock()
 
@@ -544,6 +553,67 @@ func (h *DefaultHandler) Run(ctx context.Context, cancelFn context.CancelFunc) e
 		},
 		h.handlerLoggerProducer,
 	)()
+}
+
+// close closes the handler and releases resources, but the context must be cancelled externally.
+func (h *DefaultHandler) close() {
+	h.handlerMutex.Lock()
+
+	// Check if the handler is already closed
+	if !h.IsRunning() { 
+		h.handlerMutex.Unlock()
+		return
+	}
+
+	// Mark the handler as closed
+	h.isRunning.Store(false)
+
+	h.handlerMutex.Unlock()
+
+	// Close the measures channel
+	close(h.measuresCh)
+}
+
+// StartSendingMeasures sets the handler to start sending measures through the measures channel.
+//
+// Returns:
+// An error if the handler is not running.
+func (h *DefaultHandler) StartSendingMeasures() error {
+	h.handlerMutex.Lock()
+	defer h.handlerMutex.Unlock()
+	if !h.IsRunning() {
+		return ErrHandlerIsNotRunning
+	}
+	h.hasStartedSending.Store(true)
+	return nil
+}
+
+// StopSendingMeasures sets the handler to stop sending measures through the measures channel.
+//
+// Returns:
+//
+// An error if the handler is not running.
+func (h *DefaultHandler) StopSendingMeasures() error {
+	h.handlerMutex.Lock()
+	defer h.handlerMutex.Unlock()
+	if !h.IsRunning() {
+		return ErrHandlerIsNotRunning
+	}
+	h.hasStartedSending.Store(false)
+	return nil
+}
+
+// GetMeasuresChannel returns the channel through which measures are sent.
+//
+// Returns:
+// A read-only channel of measure arrays, or an error if the handler is not running.
+func (h *DefaultHandler) GetMeasuresChannel() (<-chan *[360]*Measure, error) {
+	h.handlerMutex.Lock()
+	defer h.handlerMutex.Unlock()
+	if !h.IsRunning() {
+		return nil, ErrHandlerIsNotRunning
+	}
+	return h.measuresCh, nil
 }
 
 // scanLines reads lines from the provided reader and processes them using the given lineHandler.
@@ -654,6 +724,7 @@ func (h *DefaultHandler) handleStdoutLine(line string) error {
 	// Check if the RPLiDAR has completed a full rotation
 	if measure.IsRotationCompleted() && h.handlerLoggerProducer.IsDebug() {
 		h.handlerLoggerProducer.Debug("Full rotation completed.")
+		h.isRotationCompleted = true
 	}
 
 	// Check if the distance is valid
@@ -677,6 +748,28 @@ func (h *DefaultHandler) handleStdoutLine(line string) error {
 	// Store the measure in the measures
 	angle := int(measure.GetAngle()) % 360
 	h.measures[angle] = measure
+
+	// Send the measures if the flag is set and a full rotation has been completed
+	if h.hasStartedSending.Load() && h.isRotationCompleted {
+		// Create a snapshot of the measures to send
+		snapshot := [360]*Measure{}
+		copy(snapshot[:], h.measures[:])
+
+		// Send the snapshot through the channel with a small timeout to avoid blocking
+		select {
+		case h.measuresCh <- &h.measures:
+			if h.handlerLoggerProducer.IsDebug() {
+				h.handlerLoggerProducer.Debug("Measures sent through channel.")
+			}
+		default:
+			if h.handlerLoggerProducer.IsDebug() {
+				h.handlerLoggerProducer.Debug("Measures channel is full, skipping send.")
+			}
+		}
+	}
+
+	// Reset the rotation completed flag
+	h.isRotationCompleted = false
 
 	// Unlock the measures
 	h.measuresMutex.Unlock()
