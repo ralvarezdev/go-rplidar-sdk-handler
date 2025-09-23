@@ -391,8 +391,8 @@ func (h *DefaultHandler) runToWrap(ctx context.Context, cancelFn context.CancelF
 	// Reset the stdout lines read counter
 	h.stdoutLinesRead = 0
 
-	// Log the start of reading measures
-	h.handlerLoggerProducer.Info(HandlerStartedMessage)
+	// Log the initialization of reading measures
+	h.handlerLoggerProducer.Info(HandlerInitializedMessage)
 
 	// Check if the ultra simple executable exists
 	if _, err := os.Stat(h.ultraSimplePath); errors.Is(err, os.ErrNotExist) {
@@ -775,10 +775,7 @@ func (h *DefaultHandler) handleStdoutLine(line string) error {
 		if !h.rplidarApplicationStarted.Load() {
 			h.rplidarApplicationStarted.Store(true)
 			close(h.readyCh)
-			
-			if h.handlerLoggerProducer.IsDebug() {
-				h.handlerLoggerProducer.Debug("Handler is now ready.")
-			}
+			h.handlerLoggerProducer.Info(HandlerReadyMessage)
 		}
 	}
 

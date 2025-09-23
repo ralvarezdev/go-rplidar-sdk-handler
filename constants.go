@@ -8,8 +8,11 @@ const (
 	// SlamtecC1BaudRate is the RPLiDAR C1 baud rate
 	SlamtecC1BaudRate = 460800
 
-	// HandlerStartedMessage is the message logged when the handler starts
-	HandlerStartedMessage = "RPLiDAR handler started"
+	// HandlerInitializedMessage is the message logged when the handler is initialized
+	HandlerInitializedMessage = "RPLiDAR handler initialized"
+
+	// HandlerReadyMessage is the message logged when the handler is ready
+	HandlerReadyMessage = "RPLiDAR handler is ready"
 
 	// CloseTimeout is the timeout for closing the handler
 	CloseTimeout = 5 * time.Second
