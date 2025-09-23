@@ -366,12 +366,12 @@ func (h *DefaultHandler) IsRunning() bool {
 // Parameters:
 //
 // ctx: Context for managing cancellation and timeouts.
-// stopFn: Function to stop the context in case of an error.
+// cancelFn: Function to cancel the context in case of an error.
 //
 // Returns:
 //
 // An error if any issue occurs during reading or processing measures.
-func (h *DefaultHandler) runToWrap(ctx context.Context, stopFn func()) error {
+func (h *DefaultHandler) runToWrap(ctx context.Context, cancelFn context.CancelFunc) error {
 	// Initialize the measures slice
 	h.measures = [360]*Measure{}
 
@@ -420,9 +420,9 @@ func (h *DefaultHandler) runToWrap(ctx context.Context, stopFn func()) error {
 
 	// Stream stdout
 	g.Go(
-		goconcurrentlogger.StopContextAndLogOnError(
+		goconcurrentlogger.CancelContextAndLogOnError(
 			ctx,
-			stopFn,
+			cancelFn,
 			func(ctx context.Context) error {
 				return h.scanLines(
 					ctx,
@@ -437,9 +437,9 @@ func (h *DefaultHandler) runToWrap(ctx context.Context, stopFn func()) error {
 
 	// Stream stderr
 	g.Go(
-		goconcurrentlogger.StopContextAndLogOnError(
+		goconcurrentlogger.CancelContextAndLogOnError(
 			ctx,
-			stopFn,
+			cancelFn,
 			func(ctx context.Context) error {
 				return h.scanLines(
 					ctx,
@@ -498,12 +498,12 @@ func (h *DefaultHandler) runToWrap(ctx context.Context, stopFn func()) error {
 // Parameters:
 //
 // ctx: Context for managing cancellation and timeouts.
-// stopFn: Function to stop the context in case of an error.
+// cancelFn: Function to cancel the context in case of an error.
 //
 // Returns:
 //
 // An error if any issue occurs during reading or processing measures.
-func (h *DefaultHandler) Run(ctx context.Context, stopFn func()) error {
+func (h *DefaultHandler) Run(ctx context.Context, cancelFn context.CancelFunc) error {
 	h.handlerMutex.Lock()
 
 	// Check if it's already running
@@ -536,11 +536,11 @@ func (h *DefaultHandler) Run(ctx context.Context, stopFn func()) error {
 	h.handlerLoggerProducer = handlerLoggerProducer
 	defer h.handlerLoggerProducer.Close()
 
-	return goconcurrentlogger.StopContextAndLogOnError(
+	return goconcurrentlogger.CancelContextAndLogOnError(
 		ctx,
-		stopFn,
+		cancelFn,
 		func(ctx context.Context) error {
-			return h.runToWrap(ctx, stopFn)
+			return h.runToWrap(ctx, cancelFn)
 		},
 		h.handlerLoggerProducer,
 	)()
