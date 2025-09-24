@@ -45,10 +45,9 @@ type (
 		maxDistanceLimit      float64
 		port                  string
 		debug                 bool
-		isRotationCompleted   bool
 		hasStartedSending     atomic.Bool
 		measuresChSize        int
-		measuresCh            chan *[360]*Measure
+		measuresCh            chan *Measure
 		readyCh			  chan struct{}
 		rplidarApplicationStarted atomic.Bool
 	}
@@ -532,14 +531,11 @@ func (h *DefaultHandler) Run(ctx context.Context, cancelFn context.CancelFunc) e
 	// Reset RPLiDAR application started flag
 	h.rplidarApplicationStarted.Store(false)
 
-	// Reset rotation completed flag
-	h.isRotationCompleted = false
-
 	// Reset measures
 	h.measures = [360]*Measure{}
 
 	// Create the measures channel
-	h.measuresCh = make(chan *[360]*Measure, h.measuresChSize)
+	h.measuresCh = make(chan *Measure, h.measuresChSize)
 
 	h.handlerMutex.Unlock()
 
@@ -625,7 +621,7 @@ func (h *DefaultHandler) StopSendingMeasures() error {
 // Returns:
 //
 // A read-only channel of measure arrays, or an error if the handler is not running.
-func (h *DefaultHandler) GetMeasuresChannel() (<-chan *[360]*Measure, error) {
+func (h *DefaultHandler) GetMeasuresChannel() (<-chan *Measure, error) {
 	h.handlerMutex.Lock()
 	defer h.handlerMutex.Unlock()
 	if !h.IsRunning() {
@@ -769,7 +765,6 @@ func (h *DefaultHandler) handleStdoutLine(line string) error {
 		if h.handlerLoggerProducer.IsDebug() {
 			h.handlerLoggerProducer.Debug("Full rotation completed.")
 		}
-		h.isRotationCompleted = true
 
 		// Signal that the handler is ready after the first full rotation
 		if !h.rplidarApplicationStarted.Load() {
@@ -801,27 +796,16 @@ func (h *DefaultHandler) handleStdoutLine(line string) error {
 	angle := int(measure.GetAngle()) % 360
 	h.measures[angle] = measure
 
-	// Send the measures if the flag is set and a full rotation has been completed
-	if h.hasStartedSending.Load() && h.isRotationCompleted {
-		// Create a snapshot of the measures to send
-		snapshot := [360]*Measure{}
-		copy(snapshot[:], h.measures[:])
-
-		// Send the snapshot through the channel with a small timeout to avoid blocking
+	// Send the measure through the channel if it has started sending
+	if h.hasStartedSending.Load() {
 		select {
-		case h.measuresCh <- &snapshot:
-			if h.handlerLoggerProducer.IsDebug() {
-				h.handlerLoggerProducer.Debug("Measures sent through channel.")
-			}
+		case h.measuresCh <- measure:
 		default:
 			if h.handlerLoggerProducer.IsDebug() {
-				h.handlerLoggerProducer.Debug("Measures channel is full, skipping send.")
+				h.handlerLoggerProducer.Debug("Measures channel is full, skipping sending measures.")
 			}
 		}
 	}
-
-	// Reset the rotation completed flag
-	h.isRotationCompleted = false
 
 	// Unlock the measures
 	h.measuresMutex.Unlock()
